@@ -1,5 +1,7 @@
-﻿using System.IO;
+﻿using System.Buffers.Binary;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc.Packets;
 
@@ -25,29 +27,45 @@ internal record AfcHeader(ulong Magic, ulong Length, ulong PacketNumber, AfcOpCo
 
 internal static class AfcHeaderExtensions
 {
-    public static void Write(this BinaryWriter @this, AfcHeader header)
+    public static async ValueTask WriteAsync(this Stream @this, AfcHeader header, CancellationToken cancellationToken)
     {
-        @this.Write(header.Magic);
-        @this.Write(header.Length);
-        @this.Write(header.PacketNumber);
-        @this.Write((ulong) header.Operation);
+        var buffer = new byte[sizeof(ulong)];
+        BinaryPrimitives.WriteUInt64BigEndian(buffer, header.Magic);
+        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+        BinaryPrimitives.WriteUInt64LittleEndian(buffer, header.Length);
+        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+        BinaryPrimitives.WriteUInt64LittleEndian(buffer, header.PacketNumber);
+        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+        BinaryPrimitives.WriteUInt64LittleEndian(buffer, (ulong) header.Operation);
+        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
 
-    public static AfcHeader ReadAfcHeader(this BinaryReader @this)
+    public static async ValueTask<AfcHeader> ReadAfcHeaderAsync(this Stream @this, CancellationToken cancellationToken)
     {
-        ulong magic = @this.ReadUInt64();
+        var buffer = new byte[sizeof(ulong)];
+
+        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+        ulong magic = BinaryPrimitives.ReadUInt64BigEndian(buffer);
+
         if (magic != AfcHeader.MAGIC) {
             throw new AfcException("Missmatch in magic bytes for afc header");
         }
 
-        ulong length = @this.ReadUInt64();
+        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+        ulong length = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
         if (length < AfcHeader.HEADER_LENGTH) {
             throw new AfcException("Expected more bytes in afc header than received");
         }
 
-        return new AfcHeader(
-                magic, length,
-            @this.ReadUInt64(),
-            (AfcOpCode) @this.ReadUInt64());
+        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+        ulong packetNumber = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
+
+        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+        ulong operation = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
+
+        return new AfcHeader(magic, length, packetNumber, (AfcOpCode) operation);
     }
 }

@@ -46,14 +46,6 @@ namespace Netimobiledevice.Afc
             return serviceName;
         }
 
-        private async ValueTask DispatchPacketAsync(IAfcPacket packet, CancellationToken cancellationToken = default)
-        {
-            var writer = new AfcPacketWriter(Service.Stream, leaveOpen: true);
-            await using (writer.ConfigureAwait(false)) {
-                await packet.AcceptAsync(writer, cancellationToken).ConfigureAwait(false);
-            }
-        }
-
         private async Task<string> ResolvePath(string filename, CancellationToken cancellationToken)
         {
             DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
@@ -79,7 +71,7 @@ namespace Netimobiledevice.Afc
         /// <returns></returns>
         private async Task<bool> RmSingle(string filename, bool force, CancellationToken cancellationToken)
         {
-            await DispatchPacketAsync(new AfcRmRequest(filename), cancellationToken).ConfigureAwait(false);
+            await new AfcRmRequest(filename).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcStatusResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
 
             if (force) {
@@ -92,14 +84,14 @@ namespace Netimobiledevice.Afc
 
         public async Task FileClose(ulong handle, CancellationToken cancellationToken)
         {
-            await DispatchPacketAsync(new AfcFileCloseRequest(handle), cancellationToken).ConfigureAwait(false);
+            await new AfcFileCloseRequest(handle).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcStatusResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             response.ThrowIfNotSuccess();
         }
 
         public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
         {
-            await DispatchPacketAsync(new AfcFileOpenRequest(mode, filename), cancellationToken).ConfigureAwait(false);
+            await new AfcFileOpenRequest(mode, filename).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcFileOpenResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             return response.Handle;
         }
@@ -129,7 +121,7 @@ namespace Netimobiledevice.Afc
             AfcFileReadRequest readRequest = new AfcFileReadRequest(
                 handle,
                 unchecked((ulong) Math.Max(dest.Length, MAXIMUM_READ_SIZE)));
-            await DispatchPacketAsync(readRequest, cancellationToken).ConfigureAwait(false);
+            await readRequest.WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcFileReadResponse.ParseAsync(Service.Stream, dest, cancellationToken).ConfigureAwait(false);
             return response.DataRead;
         }
@@ -145,7 +137,7 @@ namespace Netimobiledevice.Afc
         /// <exception cref="AfcException"></exception>
         public async Task FileSeek(ulong handle, long offset, ulong whence, CancellationToken cancellationToken = default)
         {
-            await DispatchPacketAsync(new AfcSeekInfoRequest(handle, whence, offset), cancellationToken).ConfigureAwait(false);
+            await new AfcSeekInfoRequest(handle, whence, offset).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcStatusResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             response.ThrowIfNotSuccess();
         }
@@ -158,7 +150,7 @@ namespace Netimobiledevice.Afc
         /// <returns>Position in bytes of indicator</returns>
         public async Task<ulong> FileTell(ulong handle, CancellationToken cancellationToken = default)
         {
-            await DispatchPacketAsync(new AfcTellRequest(handle), cancellationToken).ConfigureAwait(false);
+            await new AfcTellRequest(handle).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcFileTellResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             return response.Tell;
         }
@@ -179,7 +171,7 @@ namespace Netimobiledevice.Afc
                     handle,
                     data[sliceStart..sliceEnd]);
 
-                await DispatchPacketAsync(packet, cancellationToken).ConfigureAwait(false);
+                await packet.WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
                 var response = await AfcStatusResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
                 response.ThrowIfNotSuccess();
             }
@@ -203,7 +195,7 @@ namespace Netimobiledevice.Afc
 
         public async Task<IReadOnlyList<string>> GetDirectoryList(CancellationToken cancellationToken)
         {
-            await DispatchPacketAsync(new AfcFileInfoRequest("/"), cancellationToken).ConfigureAwait(false);
+            await new AfcFileInfoRequest("/").WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             // TODO RESPONSE
             var response = await AfcDelimitedStringResponse.ParseAsync(Service.Stream, AfcOpCode.GetConInfo, cancellationToken).ConfigureAwait(false);
             return response.Strings;
@@ -239,7 +231,7 @@ namespace Netimobiledevice.Afc
             IReadOnlyDictionary<string, string> stat;
             try {
 
-                await DispatchPacketAsync(new AfcFileInfoRequest(filename), cancellationToken).ConfigureAwait(false);
+                await new AfcFileInfoRequest(filename).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
                 var response = await AfcFileInfoResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
                 stat = response.Info;
             }
@@ -285,14 +277,16 @@ namespace Netimobiledevice.Afc
 
         private async Task<IReadOnlyList<string>> ListDirectory(string filename, CancellationToken cancellationToken)
         {
-            await DispatchPacketAsync(new AfcReadDirectoryRequest(filename), cancellationToken).ConfigureAwait(false);
+            await new AfcReadDirectoryRequest(filename).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcDelimitedStringResponse.ParseAsync(Service.Stream, AfcOpCode.GetDeviceInfo, cancellationToken).ConfigureAwait(false);
-            return response.Strings;
+
+            // Make sure to skip "." and ".."
+            return response.Strings.Slice(2);
         }
 
         public async Task Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken)
         {
-            await DispatchPacketAsync(new AfcLockRequest(handle, (ulong) operation), cancellationToken).ConfigureAwait(false);
+            await new AfcLockRequest(handle, (ulong) operation).WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             var response = await AfcStatusResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
             response.ThrowIfNotSuccess();
         }

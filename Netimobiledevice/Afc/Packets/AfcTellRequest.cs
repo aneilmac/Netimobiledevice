@@ -1,10 +1,19 @@
-﻿using System.Threading;
+﻿using System.Buffers.Binary;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc.Packets;
 
 internal record AfcTellRequest(ulong Handle) : IAfcPacket
 {
-    public ValueTask AcceptAsync(IAsyncAfcPacketVisitor visitor, CancellationToken cancellationToken = default)
-   => visitor.VisitAsync(this, cancellationToken);
+    public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
+    {
+        await output.WriteAsync(new AfcHeader(sizeof(ulong), AfcOpCode.FileTell), cancellationToken).ConfigureAwait(false);
+
+        var buffer = new byte[sizeof(ulong)];
+
+        BinaryPrimitives.WriteUInt64LittleEndian(buffer, Handle);
+        await output.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+    }
 }

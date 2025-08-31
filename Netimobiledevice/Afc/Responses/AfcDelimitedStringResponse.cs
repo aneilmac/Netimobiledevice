@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc.Responses;
 
-internal record AfcDelimitedStringResponse(IReadOnlyList<string> Strings)
+internal record AfcDelimitedStringResponse(ArraySegment<string> Strings)
 {
     public static async ValueTask<AfcDelimitedStringResponse> ParseAsync(Stream input, AfcOpCode expectedOpCode, CancellationToken cancellationToken)
     {

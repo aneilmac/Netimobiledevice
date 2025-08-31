@@ -57,7 +57,7 @@ namespace Netimobiledevice.Afc
         {
             List<string> undeletedFiles = [];
             foreach (string filename in await GetCrashReportsList("/", cancellationToken: cancellationToken).ConfigureAwait(false)) {
-                undeletedFiles.AddRange(await _afcService.Rm(filename, cancellationToken, force: true).ConfigureAwait(false));
+                undeletedFiles.AddRange(await _afcService.Rm(filename, true, cancellationToken).ConfigureAwait(false));
             }
 
             foreach (string item in undeletedFiles) {
@@ -100,7 +100,7 @@ namespace Netimobiledevice.Afc
                     await Clear(cancellationToken).ConfigureAwait(false);
                 }
                 else {
-                    await _afcService.Rm(entry, cancellationToken, force: true).ConfigureAwait(false);
+                    await _afcService.Rm(entry, true, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
