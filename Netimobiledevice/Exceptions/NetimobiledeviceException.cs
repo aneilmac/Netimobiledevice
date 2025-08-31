@@ -6,8 +6,8 @@ namespace Netimobiledevice.Exceptions
     {
         public NetimobiledeviceException() { }
 
-        public NetimobiledeviceException(string message) : base(message) { }
+        public NetimobiledeviceException(string? message) : base(message) { }
 
-        public NetimobiledeviceException(string message, Exception inner) : base(message, inner) { }
+        public NetimobiledeviceException(string? message, Exception? inner) : base(message, inner) { }
     }
 }

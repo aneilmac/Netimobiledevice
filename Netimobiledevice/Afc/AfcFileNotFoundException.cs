@@ -1,12 +1,15 @@
-﻿namespace Netimobiledevice.Afc
+﻿using System;
+
+namespace Netimobiledevice.Afc
 {
     public class AfcFileNotFoundException : AfcException
     {
-        public AfcFileNotFoundException(AfcError afcError) : base(afcError)
+        public AfcFileNotFoundException() : base(AfcError.ObjectNotFound)
         {
         }
 
-        public AfcFileNotFoundException(AfcError afcError, string message) : base(afcError, message)
+        public AfcFileNotFoundException(string? message, Exception? innerException = null) :
+        base(AfcError.ObjectNotFound, message, innerException)
         {
         }
     }

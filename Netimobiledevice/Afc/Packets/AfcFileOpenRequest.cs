@@ -1,23 +1,10 @@
-﻿using Netimobiledevice.Extentions;
-using System;
-using System.Text;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
-namespace Netimobiledevice.Afc.Packets
+namespace Netimobiledevice.Afc.Packets;
+
+internal record AfcFileOpenRequest(AfcFileOpenMode Mode, string Filename) : IAfcPacket
 {
-    internal class AfcFileOpenRequest(AfcFileOpenMode mode, string filename) : AfcPacket
-    {
-        public AfcFileOpenMode Mode { get; } = mode;
-        public CString Filename { get; } = filename.AsCString(Encoding.UTF8);
-
-        public override int DataSize => sizeof(AfcFileOpenMode) + Filename.Length;
-
-        public override byte[] GetBytes()
-        {
-            return [
-                .. Header.GetBytes(),
-                .. BitConverter.GetBytes((ulong) Mode),
-                .. Filename.GetBytes(),
-            ];
-        }
-    }
+    public ValueTask AcceptAsync(IAsyncAfcPacketVisitor visitor, CancellationToken cancellationToken = default)
+    => visitor.VisitAsync(this, cancellationToken);
 }

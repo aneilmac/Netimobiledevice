@@ -1,21 +1,11 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace Netimobiledevice.Afc.Packets
+namespace Netimobiledevice.Afc.Packets;
+
+internal record AfcFileWriteRequest(ulong Handle, ReadOnlyMemory<byte> Data) : IAfcPacket
 {
-    internal class AfcFileWritePacket(ulong handle, byte[]? data = null) : AfcPacket
-    {
-        public ulong Handle { get; set; } = handle;
-        public byte[] Data { get; set; } = data ?? [];
-
-        public override int DataSize => sizeof(ulong) + Data.Length;
-
-        public override byte[] GetBytes()
-        {
-            return [
-                .. Header.GetBytes(),
-                .. BitConverter.GetBytes(Handle),
-                .. Data
-            ];
-        }
-    }
+    public ValueTask AcceptAsync(IAsyncAfcPacketVisitor visitor, CancellationToken cancellationToken = default)
+    => visitor.VisitAsync(this, cancellationToken);
 }
