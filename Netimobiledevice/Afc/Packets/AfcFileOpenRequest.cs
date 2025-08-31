@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc.Packets;
 
-internal record AfcFileOpenRequest(AfcFileOpenMode Mode, string Filename) : IAfcPacket
+internal record AfcFileOpenRequest(AfcFileOpenMode Mode, string Filename)
 {
     public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
     {

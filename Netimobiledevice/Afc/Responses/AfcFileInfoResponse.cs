@@ -12,7 +12,6 @@ internal record AfcFileInfoResponse(IReadOnlyDictionary<string, string> Info)
 {
     public static async ValueTask<AfcFileInfoResponse> ParseAsync(Stream input, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var dataLength = await AfcResponseParser.ParseHeaderAsync(
             input,
             AfcOpCode.GetFileInfo,

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc.Packets;
 
-internal record AfcFileWriteRequest(ulong Handle, ReadOnlyMemory<byte> Data) : IAfcPacket
+internal record AfcFileWriteRequest(ulong Handle, ReadOnlyMemory<byte> Data)
 {
     public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
     {

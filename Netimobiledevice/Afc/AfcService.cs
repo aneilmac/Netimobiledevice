@@ -31,8 +31,6 @@ namespace Netimobiledevice.Afc
 
         private static string[] DirectoryTraversalFiles { get; } = [".", "..", ""];
 
-        private ulong _packetNumber;
-
         private static string GetServiceName(LockdownServiceProvider lockdown, string serviceName)
         {
             if (string.IsNullOrEmpty(serviceName)) {

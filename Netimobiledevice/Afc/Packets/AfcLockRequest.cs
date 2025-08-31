@@ -3,10 +3,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-
 namespace Netimobiledevice.Afc.Packets;
 
-internal record AfcLockRequest(ulong Handle, ulong Op) : IAfcPacket
+internal record AfcLockRequest(ulong Handle, ulong Op)
 {
     public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
     {
