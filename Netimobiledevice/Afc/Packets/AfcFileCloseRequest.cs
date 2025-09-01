@@ -9,7 +9,9 @@ internal record AfcFileCloseRequest(ulong Handle)
 {
     public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
     {
-        await output.WriteAsync(new AfcHeader(sizeof(ulong), AfcOpCode.FileClose), cancellationToken).ConfigureAwait(false);
+        await new AfcHeader(sizeof(ulong), AfcOpCode.FileClose)
+            .WriteAsync(output, cancellationToken)
+                .ConfigureAwait(false);
 
         var buffer = new byte[sizeof(ulong)];
         BinaryPrimitives.WriteUInt64LittleEndian(buffer, Handle);

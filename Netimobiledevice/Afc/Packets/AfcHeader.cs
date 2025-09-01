@@ -1,71 +1,88 @@
-﻿using System.Buffers.Binary;
+﻿using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc.Packets;
 
-internal record AfcHeader(ulong Magic, ulong Length, ulong PacketNumber, AfcOpCode Operation)
+internal record AfcHeader(ulong Magic, ulong EntireLength, ulong ThisLength, ulong PacketNumber, AfcOpCode Operation)
 {
     private static ulong _packetCounter = ulong.MaxValue;
 
-    public const ulong HEADER_LENGTH = sizeof(ulong) * 4;
+    public const ulong HEADER_LENGTH = sizeof(ulong) * 5;
 
     // ASCII string "CFA6LPAA" in binary form
     public const ulong MAGIC = 4702127774209492547u;
 
     /// <summary>
-    /// <see cref="Length"/> - <see cref="HEADER_LENGTH"/>
+    /// <see cref="ThisLength"/> - <see cref="HEADER_LENGTH"/>
     /// </summary>
-    public ulong DataLength => checked(Length - HEADER_LENGTH);
+    public ulong DataLength => checked(ThisLength - HEADER_LENGTH);
+
+    internal AfcHeader(
+        ulong EntireLength,
+        ulong ThisLength,
+        AfcOpCode Operation) :
+        this(MAGIC,
+        EntireLength,
+        ThisLength,
+        Interlocked.Increment(ref _packetCounter),
+        Operation)
+    {
+    }
 
     internal AfcHeader(ulong DataLength, AfcOpCode Operation) :
-        this(MAGIC, HEADER_LENGTH + DataLength, Interlocked.Increment(ref _packetCounter), Operation)
+        this(HEADER_LENGTH + DataLength, HEADER_LENGTH + DataLength, Operation)
     {
     }
-}
 
-internal static class AfcHeaderExtensions
-{
-    public static async ValueTask WriteAsync(this Stream @this, AfcHeader header, CancellationToken cancellationToken)
+    public void Write(Span<byte> dest)
     {
-        var buffer = new byte[sizeof(ulong)];
-        BinaryPrimitives.WriteUInt64BigEndian(buffer, header.Magic);
-        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-
-        BinaryPrimitives.WriteUInt64LittleEndian(buffer, header.Length);
-        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-
-        BinaryPrimitives.WriteUInt64LittleEndian(buffer, header.PacketNumber);
-        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-
-        BinaryPrimitives.WriteUInt64LittleEndian(buffer, (ulong) header.Operation);
-        await @this.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+        BinaryPrimitives.WriteUInt64BigEndian(dest, Magic);
+        BinaryPrimitives.WriteUInt64LittleEndian(dest[8..], EntireLength);
+        BinaryPrimitives.WriteUInt64LittleEndian(dest[16..], ThisLength);
+        BinaryPrimitives.WriteUInt64LittleEndian(dest[24..], PacketNumber);
+        BinaryPrimitives.WriteUInt64LittleEndian(dest[32..], (ulong) Operation);
     }
 
-    public static async ValueTask<AfcHeader> ReadAfcHeaderAsync(this Stream @this, CancellationToken cancellationToken)
+    public ValueTask WriteAsync(Stream dest, CancellationToken cancellationToken)
     {
-        var buffer = new byte[sizeof(ulong)];
+        var buffer = new byte[HEADER_LENGTH];
+        Write(buffer);
+        return dest.WriteAsync(buffer, cancellationToken);
+    }
 
-        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
-        ulong magic = BinaryPrimitives.ReadUInt64BigEndian(buffer);
+    public static AfcHeader Read(ReadOnlySpan<byte> source)
+    {
+        ulong magic = BinaryPrimitives.ReadUInt64BigEndian(source);
 
-        if (magic != AfcHeader.MAGIC) {
+        if (magic != MAGIC) {
             throw new AfcException("Missmatch in magic bytes for afc header");
         }
 
-        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
-        ulong length = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
-        if (length < AfcHeader.HEADER_LENGTH) {
+        ulong entireLength = BinaryPrimitives.ReadUInt64LittleEndian(source[8..]);
+        if (entireLength < HEADER_LENGTH) {
             throw new AfcException("Expected more bytes in afc header than received");
         }
 
-        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
-        ulong packetNumber = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
+        ulong thisLength = BinaryPrimitives.ReadUInt64LittleEndian(source[16..]);
 
-        await @this.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
-        ulong operation = BinaryPrimitives.ReadUInt64LittleEndian(buffer);
+        ulong packetNumber = BinaryPrimitives.ReadUInt64LittleEndian(source[24..]);
+        ulong operation = BinaryPrimitives.ReadUInt64LittleEndian(source[32..]);
 
-        return new AfcHeader(magic, length, packetNumber, (AfcOpCode) operation);
+        return new AfcHeader(
+            magic,
+            entireLength,
+            thisLength,
+            packetNumber,
+            (AfcOpCode) operation);
+    }
+
+    public static async ValueTask<AfcHeader> ReadAsync(Stream source, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[HEADER_LENGTH];
+        await source.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+        return Read(buffer);
     }
 }

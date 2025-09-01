@@ -12,7 +12,10 @@ internal record AfcRmRequest(string Filename)
         var fileName = Encoding.UTF8.GetBytes(Filename + '\0');
         var charCount = unchecked((ulong) fileName.Length);
 
-        await output.WriteAsync(new AfcHeader(charCount, AfcOpCode.RemovePath), cancellationToken).ConfigureAwait(false);
+        await new AfcHeader(charCount, AfcOpCode.RemovePath)
+            .WriteAsync(output, cancellationToken)
+            .ConfigureAwait(false);
+
         await output.WriteAsync(fileName, cancellationToken).ConfigureAwait(false);
     }
 }

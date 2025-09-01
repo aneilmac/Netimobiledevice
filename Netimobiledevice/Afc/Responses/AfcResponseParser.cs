@@ -14,7 +14,7 @@ internal static class AfcResponseParser
         AfcOpCode expectedOpCode,
         CancellationToken cancellationToken = default)
     {
-        AfcHeader header = await stream.ReadAfcHeaderAsync(cancellationToken).ConfigureAwait(false);
+        AfcHeader header = await AfcHeader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         if (header.Operation != expectedOpCode) {
             throw new AfcException(AfcError.OpHeaderInvalid, "Unexpected Op-header type returned");
         }

@@ -9,7 +9,9 @@ internal record AfcFileReadRequest(ulong Handle, ulong Size)
 {
     public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
     {
-        await output.WriteAsync(new AfcHeader(sizeof(ulong) * 2, AfcOpCode.ReadFile), cancellationToken).ConfigureAwait(false);
+        await new AfcHeader(sizeof(ulong) * 2, AfcOpCode.ReadFile)
+            .WriteAsync(output, cancellationToken)
+            .ConfigureAwait(false);
 
         var buffer = new byte[sizeof(ulong)];
 

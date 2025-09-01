@@ -9,7 +9,9 @@ internal record AfcSeekInfoRequest(ulong Handle, ulong Whence, long Offset)
 {
     public async ValueTask WritePacketToStreamAsync(Stream output, CancellationToken cancellationToken = default)
     {
-        await output.WriteAsync(new AfcHeader((sizeof(ulong) * 2) + sizeof(long), AfcOpCode.FileSeek), cancellationToken).ConfigureAwait(false);
+        await new AfcHeader((sizeof(ulong) * 2) + sizeof(long), AfcOpCode.FileSeek)
+            .WriteAsync(output, cancellationToken)
+            .ConfigureAwait(false);
 
         var buffer = new byte[sizeof(ulong)];
 

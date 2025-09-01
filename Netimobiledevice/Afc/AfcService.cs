@@ -153,23 +153,13 @@ namespace Netimobiledevice.Afc
             return response.Tell;
         }
 
-        public async Task FileWrite(ulong handle, ReadOnlyMemory<byte> data, CancellationToken cancellationToken, int chunkSize = 4096)
+        public async Task FileWrite(ulong handle, ReadOnlyMemory<byte> data, CancellationToken cancellationToken, ulong chunkSize = 4096)
         {
-            ulong dataSize = unchecked((ulong) data.Length);
-            int chunksCount = (data.Length / chunkSize) + ((dataSize % unchecked((ulong) chunkSize) == 0) ? 0 : 1);
-            Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
+            var packet = new AfcFileWriteRequest(handle, data);
 
-            for (int i = 0; i < chunksCount; ++i) {
-                cancellationToken.ThrowIfCancellationRequested();
-                Logger?.LogDebug("Writing chunk {i}", i);
-
-                var sliceStart = i * chunkSize;
-                var sliceEnd = Math.Min((i + 1) * chunkSize, data.Length);
-                AfcFileWriteRequest packet = new AfcFileWriteRequest(
-                    handle,
-                    data[sliceStart..sliceEnd]);
-
-                await packet.WritePacketToStreamAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
+            await foreach (var _ in packet
+            .WritePacketToStreamAsync(Service.Stream, chunkSize, cancellationToken)
+            .ConfigureAwait(false)) {
                 var response = await AfcStatusResponse.ParseAsync(Service.Stream, cancellationToken).ConfigureAwait(false);
                 response.ThrowIfNotSuccess();
             }

@@ -12,7 +12,10 @@ internal record AfcFileOpenRequest(AfcFileOpenMode Mode, string Filename)
     {
         var fileName = Encoding.UTF8.GetBytes(Filename + '\0');
         var charCount = unchecked((ulong) fileName.Length);
-        await output.WriteAsync(new AfcHeader(sizeof(ulong) + charCount, AfcOpCode.FileOpen), cancellationToken).ConfigureAwait(false);
+
+        await new AfcHeader(sizeof(ulong) + charCount, AfcOpCode.FileOpen)
+            .WriteAsync(output, cancellationToken)
+            .ConfigureAwait(false);
 
         var buffer = new byte[sizeof(ulong)];
         BinaryPrimitives.WriteUInt64LittleEndian(buffer, (ulong) Mode);
